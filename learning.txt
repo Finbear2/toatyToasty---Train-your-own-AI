@@ -1,0 +1,19 @@
+Tensor - A numpy array but PyTorch can do maths on it and run it on a GPU
+Embedding dimensions - So your model doesn't just convert characters to single numbers because that would lose too much so it converts it into a vector that is the length of the embedding demensions
+
+More dimensions allow you to spot little minute patterns
+
+
+Model Parts:
+
+Head - Learns which characters it should pay attention to and which not to
+    Key - What imformation do I contain
+    Query - What imformation am I looking for 
+    Value - What imforamtion do I actually pass forward 
+    Tril - Allows the model to only look backwards not forwards, almost like a cheating prevention 
+MultiHeadAttention - Runs multiple heads in parallel
+FeedForward - Thinks about what was gathered
+layerNorms - Normalizes numbers that pass through them, keeping everything in a sensible range
+Block - Wraps one MultiHeadAttention and feedforward into a single tarnsformer Block
+Brain - Whole thing assembled
+Linear - Matrix multiplication and bias
