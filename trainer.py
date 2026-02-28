@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pickle
+import os
+import sys
 
 # RENEMBER
 
@@ -13,9 +15,6 @@ import pickle
 # compare to correct answer →
 # adjust weights →
 # repeat :)
-
-
-
 
 # The actual model
 
@@ -139,9 +138,21 @@ if __name__ == "__main__":
     temp = float(input("Please enter a temprature, this can be changed in genertaion.py and is only used for test iutput, defaults to 0.4 >>> ") or 0.4)
 
     # Load the training data
-    with open(input("Please enter training data name, ddefaults to data.txt >>> ") or "data.txt", "r") as file:
-        text = file.read()
-        print("\nLoaded training data!")
+    print("\nLoading all text from data folder into training data...")
+    
+    # Check if data folder is empty
+    if not os.listdir("data"):
+        print("No text data found in data folder, please add .txt files!\nExiting program...")
+        sys.exit() # Exit program early
+
+    text=list()
+    for file in os.scandir("data"):
+        if file.is_file() and file.name.endswith(".txt"):
+            with open(file.path, "r", encoding="utf-8") as f:
+                text.append(f.read())
+                print(f"Loaded {file.name} into training data...")
+    text = " ".join(text) # Join every peice of text together
+    print("Finished loading training data!")
 
     # Build the vocabulary
     chars = sorted(list(set(text)))
@@ -183,9 +194,15 @@ if __name__ == "__main__":
     totalParams = sum(p.numel() for p in model.parameters())
     print(f"Parameter total: {totalParams}")
 
+    if input("\nDo you want to continue with training model, this will take some time [Y/n] >>> ").lower() == "n":
+        print("Exiting program...")
+        sys.exit() # Exiting program early 
+    else:
+        print("Continuing with training model!")
+
     # TRAIN IT HEHEHEHE
 
-    print("Beginging training process. Please wait as this may take a while...")
+    print("\nBeginging training process. Please wait as this may take a while...")
     optimizer = torch.optim.AdamW(model.parameters(), lr=learningRate)
 
     # Change the learning rate overtime so it can fine tune it and increases speed
