@@ -5,7 +5,7 @@ import pickle
 from trainer import Brain  # imports your model class
 
 # load config
-with open("config.pkl", "rb") as f:
+with open(input("Enter config file path, defaults to models/config.pkl >>> ") or "models/config.pkl", "rb") as f:
     config = pickle.load(f)
 
 # extract everything
@@ -22,15 +22,16 @@ decode = lambda l: ''.join([itos[i] for i in l])
 
 # rebuild and load model
 model = Brain(vocabSize, nEmbd, nHead, nLayer, blockSize)
-model.load_state_dict(torch.load("model.pth"))
+model.load_state_dict(torch.load(input("Enter model path, defaults to models/model.pth >>>") or "models/model.pth"))
 model.eval()
 
-temp = float(input("Enter a temprature, defaults to 0.7 >>> ") or 0.7)
+temp = float(input("Enter a temprature, defaults to 0.4 >>> ") or 0.4)
+maxTokens = int(input("Enter max amount of tokens that should be generated, defaults to 500 >>> ") or 500)
 
 # generate
 while True:
     prompt = input("Enter a prompt >>> ")
     context = torch.tensor(encode(prompt), dtype=torch.long).unsqueeze(0)
-    output = decode(model.generate(context, max_new_tokens=500, temperature=temp)[0].tolist())
+    output = decode(model.generate(context, max_new_tokens=maxTokens, temperature=temp)[0].tolist())
     print("\n--- OUTPUT ---\n")
-    print(output)
+    print(output,"\n")

@@ -103,7 +103,7 @@ class Brain(nn.Module):
     def forward(self, idx, targets=None):
         B, T = idx.shape # Unpacks everything
         tok_emb = self.token_embedding(idx) # Converts characters to vectors
-        pos_emb = self.position_embedding(torch.arange(T)) # just generates [0, 1, 2, 3...] up to T, then converts those positions to vectors
+        pos_emb = self.position_embedding(torch.arange(T, device=idx.device)) # just generates [0, 1, 2, 3...] up to T, then converts those positions to vectors
         x = tok_emb + pos_emb # Combines what and where you know
         x = self.blocks(x) # Runs through all transofrmer blocks
         x = self.ln_f(x) # Final layernorm before output
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     nHead = int(input("Please enter amount of attention heads, defaults to 2 >>> ") or 2) # Attention heads
     nLayer = int(input("Please enter amount of tranformer layers, defaults to 2 >>> ") or 2) # Transformer layers
     dropout = float(input("Please enter dropout, defaults to 0 >>> ") or 0) # No dropout = raw chaos
-    temp = float(input("Please enter a temprature, this can be changed in genertaion.py and is only used for test iutput, defaults to 0.3 >>> ") or 0.3)
+    temp = float(input("Please enter a temprature, this can be changed in genertaion.py and is only used for test iutput, defaults to 0.4 >>> ") or 0.4)
 
     # Load the training data
     with open(input("Please enter training data name, ddefaults to data.txt >>> ") or "data.txt", "r") as file:
@@ -188,12 +188,20 @@ if __name__ == "__main__":
     print("Beginging training process. Please wait as this may take a while...")
     optimizer = torch.optim.AdamW(model.parameters(), lr=learningRate)
 
+    # Change the learning rate overtime so it can fine tune it and increases speed
+    # 5 minute training becomes 1 minute in testing
+    # 800k model now outpreforms a 17m parameter model 
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=maxIters, eta_min=1e-5
+    )
+
     for i in range(maxIters):
         xb, yb = getBatch("train") # Get random training batch
         logits, loss = model(xb, yb) # Runs the forward pass
         optimizer.zero_grad()
         loss.backward()
         optimizer.step() # Turn the knobs
+        scheduler.step()
 
         # Alert user of stuff happening
         if i % 100 == 0:
@@ -209,7 +217,7 @@ if __name__ == "__main__":
     print(output)
 
     print("Saving model to model.pth")
-    torch.save(model.state_dict(), "model.pth")
+    torch.save(model.state_dict(), "models/model.pth")
 
     config = {
         "blockSize": blockSize,
@@ -221,6 +229,6 @@ if __name__ == "__main__":
         "itos": itos
     }
 
-    with open("config.pkl", "wb") as f:
+    with open("models/config.pkl", "wb") as f:
         pickle.dump(config, f)
         print("Saved model config to config.pkl")
