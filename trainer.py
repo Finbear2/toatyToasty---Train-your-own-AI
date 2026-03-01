@@ -18,6 +18,9 @@ import sys
 
 # The actual model
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}\n")
+
 # Kinda the neuron
 class Head(nn.Module):
     # Initiliases everything
@@ -102,7 +105,7 @@ class Brain(nn.Module):
     def forward(self, idx, targets=None):
         B, T = idx.shape # Unpacks everything
         tok_emb = self.token_embedding(idx) # Converts characters to vectors
-        pos_emb = self.position_embedding(torch.arange(T, device=idx.device)) # just generates [0, 1, 2, 3...] up to T, then converts those positions to vectors
+        pos_emb = self.position_embedding(torch.arange(T, device=device).to(device)) # just generates [0, 1, 2, 3...] up to T, then converts those positions to vectors
         x = tok_emb + pos_emb # Combines what and where you know
         x = self.blocks(x) # Runs through all transofrmer blocks
         x = self.ln_f(x) # Final layernorm before output
@@ -136,10 +139,11 @@ if __name__ == "__main__":
     nLayer = int(input("Please enter amount of tranformer layers, defaults to 2 >>> ") or 2) # Transformer layers
     dropout = float(input("Please enter dropout, defaults to 0 >>> ") or 0) # No dropout = raw chaos
     temp = float(input("Please enter a temprature, this can be changed in genertaion.py and is only used for test iutput, defaults to 0.4 >>> ") or 0.4)
+    targetLoss = float(input("Please enter target loss for model, defaults to 1.1 >>>") or 1.1)
 
     # Load the training data
     print("\nLoading all text from data folder into training data...")
-    
+
     # Check if data folder is empty
     if not os.listdir("data"):
         print("No text data found in data folder, please add .txt files!\nExiting program...")
@@ -151,7 +155,7 @@ if __name__ == "__main__":
             with open(file.path, "r", encoding="utf-8") as f:
                 text.append(f.read())
                 print(f"Loaded {file.name} into training data...")
-    text = " ".join(text) # Join every peice of text together
+    text = "\n\n\n---Next Book---\n\n\n".join(text) # Join every peice of text together
     print("Finished loading training data!")
 
     # Build the vocabulary
@@ -183,11 +187,11 @@ if __name__ == "__main__":
         # x = "i'm not dea"
         # y = "'m not dead"
 
-        return x, y
+        return x.to(device), y.to(device)
 
     # Create the model
     print("\nCreating model...")
-    model = Brain(vocabSize, nEmbd, nHead, nLayer, blockSize)
+    model = Brain(vocabSize, nEmbd, nHead, nLayer, blockSize).to(device)
     print("Created model!")
 
     # Get and display the total parameters
@@ -202,7 +206,7 @@ if __name__ == "__main__":
 
     # TRAIN IT HEHEHEHE
 
-    print("\nBeginging training process. Please wait as this may take a while...")
+    print("\nBeginging training process. Please wait as this may take a while, DON'T CLOSE THE TERMINAL...")
     optimizer = torch.optim.AdamW(model.parameters(), lr=learningRate)
 
     # Change the learning rate overtime so it can fine tune it and increases speed
@@ -224,17 +228,29 @@ if __name__ == "__main__":
         if i % 100 == 0:
             print(f"step {i}: loss {loss.item():.4f}...")
 
+        if loss.item() <= targetLoss:
+            print("Reached target loss, stopping training!")
+            break
+
     print("Finished training!")
 
     # GENERATION
 
-    context = torch.zeros((1, 1), dtype=torch.long)
+    context = torch.zeros((1, 1), dtype=torch.long).to(device)
     output = decode(model.generate(context, max_new_tokens=500, temperature=temp)[0].tolist())
     print("\n--- Model finished, now generating first message. ---\n")
     print(output)
 
-    print("Saving model to model.pth")
-    torch.save(model.state_dict(), "models/model.pth")
+    print("\nSaving model to models/model.pth")
+    if os.path.isfile("models/model.pth"):
+        if input("This will over-ride current file occupying models/model.pth, do you want to do this? [y/N] >>> ").lower() == "y":
+            torch.save(model.state_dict(), "models/model.pth")
+            print("Saved model to models/model.pth!")
+        else:
+            print("Not saving model!")
+    else:
+        torch.save(model.state_dict(), "models/model.pth")
+        print("Saved model to models/model.pth!")
 
     config = {
         "blockSize": blockSize,
@@ -246,6 +262,18 @@ if __name__ == "__main__":
         "itos": itos
     }
 
-    with open("models/config.pkl", "wb") as f:
-        pickle.dump(config, f)
-        print("Saved model config to config.pkl")
+    print("\nSaving config file to models/config.pkl...")
+    if os.path.isfile("models/config.pkl"):
+        if input("This will over-ride current file occupying models/model.pth, do you want to do this? [y/N] >>> ").lower() == "y":
+            with open("models/config.pkl", "wb") as f:
+                pickle.dump(config, f)
+                print("Saved model config to models/config.pkl")
+        else:
+            print("Not saving config!")
+    else:
+        with open("models/config.pkl", "wb") as f:
+            pickle.dump(config, f)
+            print("Saved model config to models/config.pkl")
+
+    print("\nModel creation finished, prompt the model with genertaion.py by running it and entering model path, config path,\ndesired temprature in responses and max token length")
+    
